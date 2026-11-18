@@ -20,6 +20,8 @@ jobs:
           pip install -r backend/requirements.txt pytest
       - name: Compile backend
         run: python -m compileall -q backend
+      - name: Run backend tests
+        run: pytest -q
   frontend:
     runs-on: ubuntu-latest
     steps:
