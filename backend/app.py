@@ -6,18 +6,27 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
 app = FastAPI(title="PROOF API")
 
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "PROOF_ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 # A small, transparent demo assessment. The learning objective stays fixed.
@@ -36,16 +45,16 @@ class StartRequest(BaseModel):
     assessment_id: str = "seasons"
 
 class AnswerRequest(BaseModel):
-    session_id: str
-    answer: str
-    mode: str = "text"
+    session_id: str = Field(min_length=1, max_length=64)
+    answer: str = Field(min_length=1, max_length=2000)
+    mode: str = Field(default="text", max_length=20)
 
 class Session(BaseModel):
     session_id: str
     objective: str
     concepts: List[Dict[str, Any]]
-    demonstrated: List[str] = []
-    history: List[Dict[str, Any]] = []
+    demonstrated: List[str] = Field(default_factory=list)
+    history: List[Dict[str, Any]] = Field(default_factory=list)
     step: int = 0
 
 sessions: Dict[str, Session] = {}
@@ -166,7 +175,8 @@ def start(req: StartRequest):
 async def answer(req: AnswerRequest):
     session = sessions.get(req.session_id)
     if not session:
-        return {"error": "Session not found"}
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Session not found")
 
     hits = detect_concepts(req.answer)
     newly = [h for h in hits if h not in session.demonstrated]
@@ -210,5 +220,6 @@ async def answer(req: AnswerRequest):
 def get_session(session_id: str):
     session = sessions.get(session_id)
     if not session:
-        return {"error": "Session not found"}
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Session not found")
     return {"evidence": evidence(session), "history": session.history}

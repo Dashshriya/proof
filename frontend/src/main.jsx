@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { Check, ChevronRight, CircleHelp, Sparkles, Send, RotateCcw } from "lucide-react";
 import "./styles.css";
 
-const API = "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_BASE_URL || "/api";
 
 function App() {
   const [session, setSession] = useState(null);
@@ -29,6 +29,8 @@ function App() {
         { role: "proof", text: data.message },
         { role: "proof", text: data.question, mode: data.mode, question: true }
       ]);
+    } catch (error) {
+      setMessages([{ role: "proof", text: error.message || "Could not connect to PROOF. Check that the backend is running." }]);
     } finally {
       setLoading(false);
     }
@@ -57,6 +59,8 @@ function App() {
       } else if (data.question) {
         setMessages(prev => [...prev, { role: "proof", text: data.question, question: true, mode: data.mode }]);
       }
+    } catch (error) {
+      setMessages(prev => [...prev, { role: "proof", text: error.message || "Something went wrong. Please try again." }]);
     } finally {
       setLoading(false);
     }
